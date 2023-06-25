@@ -1,0 +1,72 @@
+version: "3.8"
+services:
+  symfony_app:
+    container_name: symfony_app
+    extra_hosts:
+     - "host.docker.internal:host-gateway"
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+    expose:
+      - 9000
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - symfony_db
+
+  symfony_nginx:
+    container_name: symfony_nginx
+    build:
+      context: .
+      dockerfile: ./docker/nginx/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - symfony_app
+    volumes:
+      - ./public:/var/www/html/public
+
+  symfony_redis:
+    container_name: symfony_redis
+    image: redis:latest
+    ports:
+      - 6379:6379
+    volumes:
+       - 'storeredis:/data'
+
+###> doctrine/doctrine-bundle ###
+  symfony_db:
+    container_name: symfony_db
+    image: postgres:${POSTGRES_VERSION:-14}-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: symfony1
+      # You should definitely change the password in production
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: user
+    volumes:
+      - db-data:/var/lib/postgresql/data:rw
+      # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/db/data:/var/lib/postgresql/data:rw
+###< doctrine/doctrine-bundle ###
+
+  ###> symfony/mailer ###
+  mailer:
+    image: schickling/mailcatcher
+    ports: [1025, 1080]
+###< symfony/mailer ###
+
+  symfony_rabbitmq:
+    container_name: symfony_rabbitmq
+    image: rabbitmq:3.9-management
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+
+volumes:
+  storeredis:
+    driver: local
+###> doctrine/doctrine-bundle ###
+  db-data:
+###< doctrine/doctrine-bundle ###
